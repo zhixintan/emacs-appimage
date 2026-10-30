@@ -1,70 +1,49 @@
-FROM ubuntu:18.04
+FROM ubuntu:26.04
 
 ENV DEBIAN_FRONTEND=noninteractive WORK_DIR=/work DIST_DIR=/work/dist DIST_APPDIR=/work/dist/AppDir
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Shanghai
+
+RUN printf '%s\n' \
+    'Types: deb' \
+    'URIs: http://mirrors.tuna.tsinghua.edu.cn/ubuntu' \
+    'Suites: resolute resolute-updates resolute-backports' \
+    'Components: main restricted universe multiverse' \
+    'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg' \
+    '' \
+    'Types: deb' \
+    'URIs: http://mirrors.tuna.tsinghua.edu.cn/ubuntu' \
+    'Suites: resolute-security' \
+    'Components: main restricted universe multiverse' \
+    'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg' \
+    > /etc/apt/sources.list.d/ubuntu.sources
 
 RUN mkdir -p $WORK_DIR $DIST_DIR $DIST_APPDIR
 WORKDIR $WORK_DIR
 
-# deps for gcc
-RUN apt-get update && apt-get install -y \
-    xz-utils wget \
-    build-essential g++ make file \
-    libgmp-dev libmpfr-dev libmpc-dev \
-    gcc-8 bison patchelf && \
+# 安装 ca-certificates 后，把源切换为 HTTPS
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates tzata && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone && \
+    dpkg-reconfigure --frontend noninteractive tzdata && \
+    sed -i 's|http://mirrors.tuna.tsinghua.edu.cn|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/ubuntu.sources && \
     rm -rf /var/lib/apt/lists/*
 
-RUN wget https://ftp.gnu.org/gnu/gcc/gcc-13.2.0/gcc-13.2.0.tar.xz && \
-    tar xf gcc-13.2.0.tar.xz && \
-    cd gcc-13.2.0 && \
-    ./configure --prefix=$DIST_APPDIR \
-    --enable-host-shared --enable-languages=jit,c++ \
-    --disable-multilib --enable-checking=release --enable-bootstrap && \
-    make -j$(nproc) && \
-    make install-strip && \
-    cd .. && rm -rf gcc-13.2.0 gcc-13.2.0.tar.xz
 
-# build binutils (ld & as) for libgccjit
-# install to /usr/local. will be copied by postprocessor
-RUN wget http://ftp.gnu.org/gnu/binutils/binutils-2.41.tar.gz && \
-    tar xf binutils-2.41.tar.gz && \
-    cd binutils-2.41 && \
-    ./configure --prefix=/usr/local/ --enable-static --enable-static-link && \
-    make -j$(nproc) && \
-    make install-strip && \
-    cd .. && rm -rf binutils-2.41 binutils-2.41.tar.gz
-
-# treesitter
-RUN wget https://github.com/tree-sitter/tree-sitter/archive/refs/tags/v0.20.8.tar.gz && \
-    tar xf v0.20.8.tar.gz && \
-    cd tree-sitter-0.20.8 && \
-    make -j$(nproc) CC=gcc-8 && \
-    make install PREFIX=$DIST_APPDIR && \
-    cd .. && rm -rf tree-sitter-0.20.8 v0.20.8.tar.gz
-
-# mps. install to /usr/local. it's static library
-RUN wget -O mps-release-1.118.0.tar.gz https://github.com/Ravenbrook/mps/archive/refs/tags/release-1.118.0.tar.gz && \
-    tar xf mps-release-1.118.0.tar.gz && \
-    cd mps-release-1.118.0 && \
-    ./configure --prefix=/usr/local/ && \
-    make && make install && \
-    cd .. && rm -rf mps-release-1.118.0 mps-release-1.118.0.tar.gz
-
+# deps for gcc
 RUN apt-get update && apt-get install -y \
-    xorg libx11-dev libgtk-3-dev libxaw7-dev libwebkit2gtk-4.0-dev \
+    xz-utils wget nano libtree-sitter-dev libgccjit-15-dev \
+    build-essential g++ make file \
+    libgmp-dev libmpfr-dev libmpc-dev \
+    xorg libx11-dev libgtk-3-dev libxaw7-dev \
     libjpeg-dev libgif-dev libtiff-dev libxmp-dev \
     libsqlite3-dev libmagickcore-dev libmagickwand-dev \
     libwebp-dev libotf-dev libcairo-dev libjansson-dev \
-    libgnutls28-dev libxpm-dev libncurses-dev \
+    libgnutls28-dev libxpm-dev libncurses-dev  libselinux-dev \
     git texinfo pax-utils && \
+    gcc bison patchelf && \
     rm -rf /var/lib/apt/lists/*
-
-# https://github.com/AppImageCommunity/pkg2appimage/issues/83
-# but single is_selinux_enabled function is not enough
-RUN wget -O libselinux-dummy.tar.gz https://github.com/blahgeek/libselinux-dummy/archive/refs/tags/20220102.tar.gz && \
-    tar xf libselinux-dummy.tar.gz && \
-    cd libselinux-dummy-20220102 && \
-    make && make install && \
-    ln -sf /lib/libselinux.so.1 /lib/$(uname -m)-linux-gnu/libselinux.so.1 && \
-    cd .. && rm -rf libselinux-dummy-20220102 libselinux-dummy.tar.gz
 
 ADD scripts /work/scripts
