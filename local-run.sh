@@ -16,4 +16,4 @@ popd
 docker build .  # next step has no log, so build first
 IMAGE_ID=$(docker build -q .)
 
-./build.sh "$IMAGE_ID" ./build/emacs-src BUILD_GUI=lucid BUILD_NATIVE_COMP=no
+./build.sh "$IMAGE_ID" ./build/emacs-src IS_GUI=no BUILD_NATIVE_COMP=yes
