@@ -6,7 +6,7 @@ rm -rf ./dist
 mkdir -p build
 pushd build
 if [ ! -d emacs-src ]; then
-    git clone -b emacs-30.1 --depth 1 https://github.com/emacs-mirror/emacs emacs-src
+    git clone -b emacs-30.1 --depth 1 https://gitcode.com/gh_mirrors/em/emacs.git  emacs-src
 fi
 pushd emacs-src
 git clean -dxf
